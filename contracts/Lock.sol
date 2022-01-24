@@ -27,6 +27,16 @@ contract Lock is ERC721 {
         address realOwner = productNft[productId].ownerAddress;
         return realOwner == msg.sender;
     }
+    
+    /* checks if a user has permission from the product owner to use a particular product */
+    function isAllowed(uint productId, address userToCheckAllowed) public view returns (bool) {
+        for (uint i = 0; i < productNft[productId].allowedToUse.length; i ++) {
+            if (productNft[productId].allowedToUse[i] == userToCheckAllowed) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /* the owner is allowed to give usage rights of the product to another user */
     function grantPermission(uint productId, address userToGrantPermission) public {
@@ -53,6 +63,37 @@ contract Lock is ERC721 {
                 break;
             }
         }
+    }
+
+    /*  owner has rights to give the product(NFT) to anyone, that person will become
+        the new owner and previous owner will no longer have it, all users who had 
+        access to the product under the old owner will keep their access unless the 
+        new owner decides to modify it */
+    function transferOwnership(uint productId, address newOwner) public {
+        if (!checkOwner(productId)) {
+            return;
+        }
+
+        bool belongsToOldOwner = false;
+        for (uint i = 0; i < productsOfPerson[msg.sender].length; i ++) {
+            if (productsOfPerson[msg.sender][i] == productId) {
+                belongsToOldOwner = true;
+                while (i < productsOfPerson[msg.sender].length - 1) {
+                    productsOfPerson[msg.sender][i] = productsOfPerson[msg.sender][i + 1];
+                    i ++;
+                }
+                delete productsOfPerson[msg.sender][productsOfPerson[msg.sender].length - 1];
+                break;
+            }
+        }
+
+        if (!belongsToOldOwner) {
+            return;
+        }
+        productsOfPerson[newOwner].push(productId); 
+
+        address previousOwner = ownerOf(productId);
+        _transfer(previousOwner, msg.sender, productId);
     }
 }
 
